@@ -14,41 +14,26 @@ from langchain_community.embeddings import OllamaEmbeddings
 # Initialize Ollama embeddings using DeepSeek-R1
 embedding_function = OllamaEmbeddings(model="deepseek-r1")
 
-# Embedding generation
-def generate_embedding():
-    return embedding_function
+# Initialize text splitter and vector store retriever
+text_splitter = None
+retriever = None
+
 
 # Parallelize embedding generation
-def generate_embedding_parallel(chunk):
+def generate_embedding(chunk):
     return embedding_function.embed_query(chunk.page_content)
 
-def process_pdf(pdf_bytes):
-    if pdf_bytes is None:
-        return None, None, None
+# Combine document chunks into a single context string
+def combine_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
+def process_pdf(file_path):
+    if file_path is None:
+        return None, None
 
     # Load the document using PyMuPDFLoader
-    loader = PyMuPDFLoader(pdf_bytes)
-    data = loader.load()
-
-    # Split the document into smaller chunks
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
-    chunks = text_splitter.split_documents(data)
-
-    embeddings = generate_embedding()
-
-    # Add documents and embeddings to Chroma
-    vectorstore = Chroma.from_documents(documents=chunks, embedding=embeddings, persist_directory="./chroma_db")
-
-    # Initialize retriever using Ollama embeddings for queries
-    retriever = vectorstore.as_retriever()
-    return text_splitter, retriever
-
-def process_pdf_parallel(pdf_bytes):
-    if pdf_bytes is None:
-        return None, None, None
-
-    # Load the document using PyMuPDFLoader
-    loader = PyMuPDFLoader(pdf_bytes)
+    loader = PyMuPDFLoader(file_path)
     data = loader.load()
 
     # Split the document into smaller chunks
@@ -56,7 +41,7 @@ def process_pdf_parallel(pdf_bytes):
     chunks = text_splitter.split_documents(data)
 
     with ThreadPoolExecutor() as executor:
-        embeddings = list(executor.map(generate_embedding_parallel, chunks))
+        embeddings = list(executor.map(generate_embedding, chunks))
 
     # Initialize Chroma client and create/reset the collection
     client = Client(Settings())
@@ -75,12 +60,19 @@ def process_pdf_parallel(pdf_bytes):
             ids=[str(idx)]  # Ensure IDs are strings
         )
 
-    # Initialize retriever using Ollama embeddings for queries
-    retriever = Chroma(collection_name="custom_collection", client=client, embedding_function=embedding_function).as_retriever()
+    # Reinitialize retriever using Ollama embeddings for queries
+    vectorstore = Chroma(collection_name="custom_collection", client=client, embedding_function=embedding_function)
+    retriever = vectorstore.as_retriever()
+
     return text_splitter, retriever
 
-def combine_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+def retrieve_context(question, retriever):
+    # Retrieve relevant document chunks
+    retrieved_docs = retriever.invoke(question)
+    # Combine the retrieved content into a single context string
+    context = combine_docs(retrieved_docs)
+    return context
+
 
 def query_ollama(question, context):
     # Format the input prompt
@@ -96,15 +88,7 @@ def query_ollama(question, context):
 
     # Remove content between <think> and </think> tags to remove thinking output
     final_answer = re.sub(r"<think>.*?</think>", "", response_content, flags=re.DOTALL).strip()
-
     return final_answer
-
-def retrieve_context(question, retriever):
-    # Retrieve relevant documents
-    retrieved_docs = retriever.invoke(question)
-    # Combine the retrieved content
-    context = combine_docs(retrieved_docs)
-    return context
 
 def rag_chain(question, retriever):
     # Retrieve context and generate an answer using RAG
@@ -112,13 +96,19 @@ def rag_chain(question, retriever):
     answer = query_ollama(question, context)
     return answer
 
-def ask_question(pdf_bytes, question):
-    text_splitter, retriever = process_pdf_parallel(pdf_bytes)
+def ask_question(file_path, reload_context, question):
+    global text_splitter, retriever
+    
+    # Context reload required
+    if reload_context or ((retriever is None or text_splitter is None) and file_path is not None):
+        text_splitter, retriever = process_pdf(file_path)
 
-    if text_splitter is None:
-        return None  # No PDF uploaded
+    # Execute RAG query
+    if retriever is not None and text_splitter is not None:
+        result = rag_chain(question, retriever)
+    else:
+        result = query_ollama(question, "")
 
-    result = rag_chain(question, retriever)
     return {result}
 
 # Set up the Gradio interface
@@ -126,6 +116,7 @@ interface = gr.Interface(
     fn=ask_question,
     inputs=[
         gr.File(label="Upload PDF (optional)"),
+        gr.Checkbox(label="Reload context", value=False),
         gr.Textbox(label="Ask a question"),
     ],
     outputs="text",
