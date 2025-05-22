@@ -11,9 +11,13 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 
-
 # Initialize Ollama embeddings using DeepSeek-R1
 embedding_function = OllamaEmbeddings(model="deepseek-r1")
+
+# Initialize text splitter and vector store retriever
+text_splitter = None
+retriever = None
+
 
 # Parallelize embedding generation
 def generate_embedding(chunk):
@@ -24,12 +28,12 @@ def combine_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-def process_pdf(pdf_bytes):
-    if pdf_bytes is None:
-        return None, None, None
+def process_pdf(file_path):
+    if file_path is None:
+        return None, None
 
     # Load the document using PyMuPDFLoader
-    loader = PyMuPDFLoader(pdf_bytes)
+    loader = PyMuPDFLoader(file_path)
     data = loader.load()
 
     # Split the document into smaller chunks
@@ -56,7 +60,7 @@ def process_pdf(pdf_bytes):
             ids=[str(idx)]  # Ensure IDs are strings
         )
 
-    # Initialize retriever using Ollama embeddings for queries
+    # Reinitialize retriever using Ollama embeddings for queries
     vectorstore = Chroma(collection_name="custom_collection", client=client, embedding_function=embedding_function)
     retriever = vectorstore.as_retriever()
 
@@ -92,13 +96,19 @@ def rag_chain(question, retriever):
     answer = query_ollama(question, context)
     return answer
 
-def ask_question(pdf_bytes, question):
-    text_splitter, retriever = process_pdf(pdf_bytes)
+def ask_question(file_path, reload_context, question):
+    global text_splitter, retriever
+    
+    # Context reload required
+    if reload_context or ((retriever is None or text_splitter is None) and file_path is not None):
+        text_splitter, retriever = process_pdf(file_path)
 
-    if text_splitter is None:
-        return None  # No PDF uploaded
+    # Execute RAG query
+    if retriever is not None and text_splitter is not None:
+        result = rag_chain(question, retriever)
+    else:
+        result = query_ollama(question, "")
 
-    result = rag_chain(question, retriever)
     return {result}
 
 # Set up the Gradio interface
@@ -106,6 +116,7 @@ interface = gr.Interface(
     fn=ask_question,
     inputs=[
         gr.File(label="Upload PDF (optional)"),
+        gr.Checkbox(label="Reload context", value=False),
         gr.Textbox(label="Ask a question"),
     ],
     outputs="text",
