@@ -3,6 +3,8 @@ import re
 import gradio as gr
 from concurrent.futures import ThreadPoolExecutor
 
+from chromadb.config import Settings
+from chromadb import Client
 from langchain.vectorstores import Chroma
 
 from langchain_community.document_loaders import PyMuPDFLoader
@@ -58,7 +60,10 @@ def process_pdf_parallel(pdf_bytes):
 
     # Initialize Chroma client and create/reset the collection
     client = Client(Settings())
-    client.delete_collection(name="custom_collection")
+    
+    if "custom_collection" in [c.name for c in client.list_collections()]:
+        client.delete_collection(name="custom_collection")
+    
     collection = client.create_collection(name="custom_collection")
 
     # Add documents and embeddings to Chroma
@@ -94,23 +99,6 @@ def query_ollama(question, context):
 
     return final_answer
 
-def query_embeddings(question, context):
-    # Format the input prompt
-    formatted_prompt = f"Question: {question}\n\nContext: {context}"
-
-    # Query DeepSeek-R1 using Ollama
-    response = embedding_function.chat(
-        model="deepseek-r1",
-        messages=[{"role": "user", "content": formatted_prompt}],
-    )
-
-    response_content = response["message"]["content"]
-
-    # Remove content between <think> and </think> tags to remove thinking output
-    final_answer = re.sub(r"<think>.*?</think>", "", response_content, flags=re.DOTALL).strip()
-
-    return final_answer
-
 def retrieve_context(question, retriever):
     # Retrieve relevant documents
     retrieved_docs = retriever.invoke(question)
@@ -125,7 +113,7 @@ def rag_chain(question, retriever):
     return answer
 
 def ask_question(pdf_bytes, question):
-    text_splitter, retriever = process_pdf(pdf_bytes)
+    text_splitter, retriever = process_pdf_parallel(pdf_bytes)
 
     if text_splitter is None:
         return None  # No PDF uploaded
@@ -133,6 +121,7 @@ def ask_question(pdf_bytes, question):
     result = rag_chain(question, retriever)
     return {result}
 
+# Set up the Gradio interface
 interface = gr.Interface(
     fn=ask_question,
     inputs=[
