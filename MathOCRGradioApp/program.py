@@ -7,7 +7,15 @@ from PIL import Image
 import easyocr
 import requests
 
-reader = easyocr.Reader(['en'])
+reader = easyocr.Reader(['en', 'it'])
+basic_prompt = (
+    f"You are an AI specialized in solving puzzles. Analyze the following, identify hidden patterns or rules, and provide the missing value with step-by-step reasoning in text format. Do not return an answer in Latex."
+    "Format your response strictly as follows:\n"
+    "1. **Given Equation**:\n   - (original equations)\n"
+    "2. **Pattern Identified**:\n   (explain the hidden logic)\n"
+    "3. **Step-by-step Calculation**:\n   - For (input values):\n     (calculation and result)\n"
+    "4. **Final Answer**:\n     (Answer = X)"
+)
 
 
 def query_ollama(formatted_prompt):
@@ -25,7 +33,7 @@ def query_ollama(formatted_prompt):
     return final_answer
 
 
-def solve_puzzle(image):
+def solve_puzzle(prompt, image):
     """Extracts the puzzle from the image and sends it to Gemma3 for solving."""
     try:
         # 1. Save the uploaded image temporarily; EasyOCR uses file paths
@@ -50,13 +58,8 @@ def solve_puzzle(image):
 
         # 4. Compose the user message with concise instructions
         puzzle_prompt = (
-            f"You are an AI specialized in solving puzzles. Analyze the following, identify hidden patterns or rules, and provide the missing value with step-by-step reasoning in text format. Do not return an answer in Latex."
+            f"{prompt}\n"
             f"\nPuzzle:\n{refined_text}\n"
-            "Format your response strictly as follows:\n"
-            "1. **Given Equation**:\n   - (original equations)\n"
-            "2. **Pattern Identified**:\n   (explain the hidden logic)\n"
-            "3. **Step-by-step Calculation**:\n   - For (input values):\n     (calculation and result)\n"
-            "4. **Final Answer**:\n     (Answer = X)"
         )
 
         # 5. Send the request to Gemma3 with a timeout
@@ -71,7 +74,10 @@ def solve_puzzle(image):
 # Set up the Gradio interface
 interface = gr.Interface(
     fn=solve_puzzle,
-    inputs=gr.Image(type="pil"),
+    inputs=[
+        gr.Textbox(label="Specify a puzzle solving prompt request", placeholder="Specify a puzzle solving prompt request", value=basic_prompt),
+        gr.Image(type="pil")
+    ],
     outputs="text",
     title="Logic Puzzle Solver with EasyOCR & Gemma3",
     description="Upload an image of a logic puzzle, and the model will solve it for you."
