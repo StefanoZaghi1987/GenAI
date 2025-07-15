@@ -1,0 +1,12 @@
+[project]
+name = "prmcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]>=1.10.1",
+    "notion-client>=2.4.0",
+    "python-dotenv>=1.1.1",
+    "requests>=2.32.4",
+]
