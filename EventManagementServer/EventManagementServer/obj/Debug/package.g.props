@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <PackageJsonName Condition="$(PackageJsonName) == ''">eventmanagementserver</PackageJsonName>
+    <PackageJsonVersion Condition="$(PackageJsonVersion) == ''">0.0.0</PackageJsonVersion>
+    <PackageJsonPrivate Condition="$(PackageJsonPrivate) == ''">true</PackageJsonPrivate>
+    <PackageJsonScriptsStart Condition="$(PackageJsonScriptsStart) == ''">node ./bin/www</PackageJsonScriptsStart>
+    <PackageJsonDependenciesCookieParser Condition="$(PackageJsonDependenciesCookieParser) == ''">~1.4.4</PackageJsonDependenciesCookieParser>
+    <PackageJsonDependenciesDebug Condition="$(PackageJsonDependenciesDebug) == ''">~2.6.9</PackageJsonDependenciesDebug>
+    <PackageJsonDependenciesExpress Condition="$(PackageJsonDependenciesExpress) == ''">~4.16.1</PackageJsonDependenciesExpress>
+    <PackageJsonDependenciesHttpErrors Condition="$(PackageJsonDependenciesHttpErrors) == ''">~1.6.3</PackageJsonDependenciesHttpErrors>
+    <PackageJsonDependenciesMorgan Condition="$(PackageJsonDependenciesMorgan) == ''">~1.9.1</PackageJsonDependenciesMorgan>
+    <PackageJsonDependenciesPug Condition="$(PackageJsonDependenciesPug) == ''">2.0.0-beta11</PackageJsonDependenciesPug>
+    <PackageJsonDependenciesUuid Condition="$(PackageJsonDependenciesUuid) == ''">^9.0.0</PackageJsonDependenciesUuid>
+  </PropertyGroup>
+</Project>
