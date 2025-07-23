@@ -2,12 +2,17 @@ import sys
 import os
 import traceback
 from typing import Any, List, Dict
+from pydantic import BaseModel
 from fastapi import FastAPI
 from fastmcp import FastMCP
 import uvicorn
 from github_integration import fetch_pr_changes
 from notion_client import Client
 from dotenv import load_dotenv
+
+class NotionPage(BaseModel):
+    title: str
+    content: str
 
 class PRAnalyzer:
     def __init__(self):
@@ -100,15 +105,15 @@ class PRAnalyzer:
 
     def _register_endpoints(self):
         """Register API endpoints for PR analysis."""
-        @self.app.get("/pull_request/fetch_changes")
-        async def FetchPullRequestChanges(repo_owner: str, repo_name: str, pr_number: int) -> Dict[str, Any]:
+        @self.app.get("/pull_request/fetch_changes", operation_id="fetch_pull_request_changes")
+        async def fetch_pr_api(repo_owner: str, repo_name: str, pr_number: int) -> Dict[str, Any]:
             """Fetch changes from a GitHub pull request."""
             return self.fetch_pr(repo_owner, repo_name, pr_number)
 
-        @self.app.get("/notion/create_page")
-        async def CreateNotionPage(title: str, content: str) -> str:
+        @self.app.post("/notion/create_page", operation_id="create_notion_page")
+        async def create_notion_page_api(notionPage: NotionPage) -> str:
             """Create a Notion page with PR analysis."""
-            return self.create_notion_page(title, content)
+            return self.create_notion_page(notionPage.title, notionPage.content)
 
     def run(self):
         """Start the MCP server."""

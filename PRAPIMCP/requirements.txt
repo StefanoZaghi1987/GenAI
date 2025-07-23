@@ -1,6 +1,7 @@
 # Core dependencies for PR Analyzer
 requests>=2.31.0            # For GitHub API calls
 python-dotenv>=1.0.0        # For environment variables
+pydantic>=2.11.0            # For data validation and settings management
 fastapi>=0.116.0            # For API calls
 fastmcp>=2.10.0             # For MCP server functionality
 uvicorn>=0.35.0             # To serve and run the application
@@ -9,6 +10,7 @@ notion-client>=2.3.0        # For Notion integration
 # Optional: Pin versions for stability
 # requests==2.31.0
 # python-dotenv==1.0.0
+# pydantic==2.11.0
 # fastapi==0.116.0
 # fastmcp==2.10.0
 # uvicorn==0.35.0
